@@ -1,6 +1,3 @@
-
-# Gosh, this poor helper needs some major refactoring :)
-
 module ActsAsCategoryHelper
   
   extend ActiveSupport::Memoizable
@@ -45,36 +42,11 @@ module ActsAsCategoryHelper
   memoize :aac_tree
   
   def aac_tree_category(category)
-    anchor = "aac_tree_#{category.id.to_s}"
-    if category.ancestors_count == 0
-      # CSS for root categories
-      html_headline = ' class="tree_headline" ' 
-      html_count = ''
-    else
-      # CSS for any deeper level of categories
-      html_headline = '' 
-      html_count = ' <span class="tree_count"> ' + h(category.pictures_count.to_s)+ '</span>'
-    end
-
-    result = tag('a', {:name => anchor}) + tag('/a')
-    result += "<li#{html_headline}>"
-    result += '<b>' if @category == category.id
-    if category.pictures_count == 0 and category.ancestors_count > 0 and category.children_count == 0 then
-      result += h(category.name)
-    elsif category.ancestors_count == 0 or !category.children_count.blank? and category.children_count > 0 then
-      result += content_tag('a', h(category.name), :onclick => "new Element.toggle('#{anchor}')", :href => "\##{anchor}")
-    else
-      result += link_to_unless_current h(category.name), {:controller => 'category', :id => category.id } unless category.ancestors_count == 0
-    end
-    result += '</b>' if @category == category.id
-    result += html_count if !category.pictures_count.blank? and category.pictures_count > 0
-    result += '</li>'
-
-    if !category.children_count.blank? and category.children_count > 0
-      addon = (category.ancestors_count == 0 or category.descendants_ids.include?(@category) or (category.self_and_siblings_ids.include?(@category) and category.children_count == 0)) ? '' : ' style="display: none;"'
-      result += "<ul id='#{anchor}' #{addon}>"
+    result = "<li>" + link_to(h(category.name), category) + "</li>"
+    unless category.children.empty? then
+      result += "<ul>"
       category.children.each { |child| result += aac_tree_category(child) }
-      result += '</ul>'
+      result += "</ul>"
     end
     result
   end
