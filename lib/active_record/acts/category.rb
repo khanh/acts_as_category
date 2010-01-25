@@ -74,9 +74,6 @@ module ActiveRecord
             attr_readonly options[:descendants_count] if column_names.include? options[:descendants_count]
           end
           
-          # Define class variables
-          class_variable_set :@@permissions, []
-          
           # Generate instance method for scope condition
           # Note that it is assumed that each tree (i.e. from root to all descending leafs) is within the same scope anyway!
           # That means, that the children method doesn't need to look for any scope.
@@ -100,22 +97,8 @@ module ActiveRecord
           # Class methods
           # –––––––––––––
 
-          # Returns an +array+ with +ids+ of categories, which are to be allowed to be seen,
-          # though they might be flagged with the +hidden+ attribute. Returns an empty +array+ if none.
-          # The idea is, to define a class variable array +permissions+ each time the user logs in
-          # (which is job of the controller, in case you would like to use this functionality).
-          def self.permissions
-            class_variable_get :@@permissions
-          end
-          
-          # Takes an +array+ of +ids+ of categories and defines them to be permitted.
-          # Don't forget that this overwrites the array with each call, instead of adding further ids to it.
-          def self.permissions=(ids)
-            permissions = []
-            ids.each { |id| permissions << id.to_i if id.to_i > 0 } if ids.is_a?(Array)
-            class_variable_set :@@permissions, permissions.uniq
-          end
-          
+          class_eval <<-END
+
           # This class_eval contains methods which cannot be added wihtout having a concrete model.
           # Say, we want these methods to use parameters like "options[:foreign_key]", but we
           # don't have these parameters, unless somebody evokes the acts_as_category method in his
@@ -123,8 +106,6 @@ module ActiveRecord
           # and not already when our plugin's init.rb adds our Acts::Category modules to ActiveRecord::Base.
           # Another reason is, that we want to overwrite the association method <tt>children</tt>, but this
           # association doesn't exist before acts_as_category is actually called. So we need class_eval.
-          
-          class_eval <<-END
           
             # –––––––––––––––––––––––
             # Generated class methods
@@ -208,39 +189,17 @@ module ActiveRecord
           # Scope out via given scope conditions for the instance
           named_scope :scoped, lambda { |sender| { :conditions => sender.scope_condition, :order => order_by } }
           
-          # Scope for permitted categories
-          # Does *NOT* respect inherited permissions! 
-          # This is intended to be used with roots only
-          named_scope :permitted, lambda {
-            if permissions.empty?
-              { :conditions => "#{hidden_column} IS NULL OR #{hidden_column}=0", :order => order_by }
-            else
-              { :conditions => ["#{hidden_column} IS NULL OR #{hidden_column}=0 OR id IN (?)", class_variable_get(:@@permissions)], :order => order_by }
-            end
-          }
-
           # Returns all root +categories+, disregarding permissions
-          named_scope :roots!, lambda { { :conditions => { parent_id_column => nil }, :order => order_by } }
+          named_scope :roots, lambda { { :conditions => { parent_id_column => nil }, :order => order_by } }
 
-          # Returns all root +categories+, respecting permitted/hidden ones
-          def self.roots
-            roots!.permitted
+          # Returns all root +categories+.  DEPRECIATED
+          def self.roots!
+            roots
           end
           
           # Deletes all prohibited categories from a find()-resultset
           def self.get(*args)
-            case args.first
-              # I don't want to explain it now, but :first and :last are really hard to implement with inherited permissions :)
-              when :first then raise 'Sorry, :first and :last are not supported currently.'
-              when :last  then raise 'Sorry, :first and :last are not supported currently.'
-              else result = find(*args)
-            end
-            return nil if result.nil?
-            result = [result] unless result.is_a?(Array)
-            result.delete_if { |category| !category.permitted? }
-            return result.first if result.size == 1 and args.first != :all
-            raise ActiveRecord::RecordNotFound if result.empty?
-            result
+            raise 'Sorry, get is not supported with this implementation.'
           end
           
         end
@@ -258,7 +217,6 @@ module ActiveRecord
         
 
         # These are just shortcuts to keep track of the class wide variables
-        def permissions()              self.class.permissions              end
         def order_by()                 self.class.order_by                 end
         # And column names defined in the class
         def parent_id_column()         self.class.parent_id_column         end
@@ -270,12 +228,6 @@ module ActiveRecord
 
         # Returns +true+ if category is visible/permitted, otherwise +false+.
         def permitted?
-          return false if self.class.find(self.id).read_attribute(hidden_column) and !self.class.permissions.include?(self.id)          
-          node = self
-          while node.parent do
-            node = node.parent
-            return false if self.class.find(node.id).read_attribute(hidden_column) and !self.class.permissions.include?(node.id)
-          end
           true
         end
 
@@ -314,10 +266,10 @@ module ActiveRecord
         end
 
         # Returns array of IDs of descendants, respecting permitted/hidden categories
-        def descendants_ids(ignore_permissions = false)
+        def descendants_ids(ignore_permissions = true)
           descendants_ids = [] 
           self.children.each { |child|
-            descendants_ids += [child.id] if ignore_permissions or child.permitted?
+            descendants_ids += [child.id]
             descendants_ids += child.descendants_ids
           } unless self.children.empty?
           descendants_ids

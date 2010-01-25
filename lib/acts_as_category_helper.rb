@@ -12,7 +12,7 @@ module ActsAsCategoryHelper
     result = "<select id='#{config[:id]}' name='#{config[:name].to_s}' class='#{config[:class]}'>"
     result += "<option value=''    #{"selected='selected'" if config[:selected] == '' }   >#{config[:option_nil]}</option>" unless config[:option_nil] == false
     result += "<option value='all' #{"selected='selected'" if config[:selected] == 'all' }>#{config[:option_all]}</option>" unless config[:option_all] == false
-    roots.each { |root| result += aac_select_option(root, config[:selected], config[:parents_nil]) }
+    roots.each { |root| result += aac_select_option(root, config[:selected], config[:parents_nil]) unless !root.allowed_to_read}
     result += '</select>'
   end
   memoize :aac_select
@@ -24,7 +24,7 @@ module ActsAsCategoryHelper
     result += h(category.name)
     result += "</option>"
     unless category.children.empty? then
-      category.children.each { |child| result += aac_select_option(child, selected, parents_have_no_id) }
+      category.children.each { |child| result += aac_select_option(child, selected, parents_have_no_id) unless !child.allowed_to_read}
     end
     result
   end
@@ -36,7 +36,7 @@ module ActsAsCategoryHelper
   
   def aac_tree(roots)
     result = "<ul class='tree_root'>"
-    roots.each { |root| result += aac_tree_category(root) }
+    roots.each { |root| result += aac_tree_category(root) unless !root.allowed_to_read}
     result += '</ul>'
   end
   memoize :aac_tree
@@ -45,7 +45,7 @@ module ActsAsCategoryHelper
     result = "<li>" + link_to(h(category.name), category) + "</li>"
     unless category.children.empty? then
       result += "<ul>"
-      category.children.each { |child| result += aac_tree_category(child) }
+      category.children.each { |child| result += aac_tree_category(child) unless !child.allowed_to_read}
       result += "</ul>"
     end
     result
