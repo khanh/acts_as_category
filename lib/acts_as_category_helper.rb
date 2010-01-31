@@ -37,7 +37,7 @@ module ActsAsCategoryHelper
   def aac_tree(roots, index = {:name => "", :path => ""})
     result = "<ul class='tree_root'>"
     if !index[:name].blank? && !index[:path].blank?
-      result += "<li class='root_link'>" + link_to(h(index[:name]), index[:path]) + "</li>"
+      result += "<li class='root_link'>" + link_to(h(index[:name]), index[:path], {:title => h(index[:name])}) + "</li>"
       result += '<ul>'
     end
     roots.each { |root| result += aac_tree_category(root) unless !root.allowed_to_read}
@@ -49,7 +49,7 @@ module ActsAsCategoryHelper
   memoize :aac_tree
   
   def aac_tree_category(category)
-    result = "<li>" + link_to(h(category.name), category) + "</li>"
+    result = "<li>" + link_to(h(category.name), category, {:title => h(category.name)}) + "</li>"
     unless category.children.empty? then
       result += "<ul>"
       category.children.each { |child| result += aac_tree_category(child) unless !child.allowed_to_read}
