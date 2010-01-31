@@ -34,9 +34,16 @@ module ActsAsCategoryHelper
   # Sidebar menu tree
   # -----------------
   
-  def aac_tree(roots)
+  def aac_tree(roots, index = {:name => "", :path => ""})
     result = "<ul class='tree_root'>"
+    if !index[:name].blank? && !index[:path].blank?
+      result += "<li class='root_link'>" + link_to(h(index[:name]), index[:path]) + "</li>"
+      result += '<ul>'
+    end
     roots.each { |root| result += aac_tree_category(root) unless !root.allowed_to_read}
+    if !index[:name].blank? && !index[:path].blank?
+      result += '</ul>'
+    end
     result += '</ul>'
   end
   memoize :aac_tree
